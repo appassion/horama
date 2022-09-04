@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!-- saved from url=(0013)about:internet -->
+<html lang="ja">
+<head>
+
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Style-Type" content="text/css" />
+<meta http-equiv="Content-Script-Type" content="text/javascript" />
+
+<title>index</title>
+
+<meta name="viewport" content="width=device-width" />
+
+<!--
+<link rel="stylesheet" href="css/style.css" media="all">
+-->
+<style type="text/css">
+/* <![CDATA[ */ /**/
+
+/*{
+	-moz-box-sizing:border-box;
+	-webkit-box-sizing:border-box;
+	-o-box-sizing:border-box;
+	-ms-box-sizing:border-box;
+	box-sizing:border-box;
+}
+*/
+
+html, body {
+	margin: 0;
+}
+
+#map {
+	margin: 0 auto;
+	padding: 0;
+	width: 100%;/**/
+	height: 100%;/**/
+	/*overflow: scroll;/**/
+	line-height: 0;
+	white-space: nowrap;
+	cursor: crosshair;
+}
+
+#map * {
+	margin: 0;
+	padding: 0;
+}
+
+#map img {
+	width: 256px;
+	height: 256px;
+}
+
+/* ]]> */ /**/
+</style>
+<script type="text/javascript">//<!-- type="application/javascript;version=1.7"-->
+// <![CDATA[
+
+
+
+
+
+window.addEventListener("load", function(){
+	/*
+	panorama
+	scenery
+	landscape
+	appearance
+	perspective
+	projection
+	*/
+
+	/*
+	navigator.geolocation || alert("この端末では位置情報が取得できません");
+	navigator.geolocation.getCurrentPosition(
+		(position) => alert([
+			"緯度:"+position.coords.latitude,	// -180〜180
+			"経度:"+position.coords.longitude,	// -90〜90
+			"標高:"+position.coords.altitude,	// メートル
+			"方角:"+position.coords.heading,		// 0〜360 0:北,90:東,180:南,270:西
+			"速度:"+position.coords.speed,		// メートル/秒
+		].join(", ")),
+		(error) => alert([
+			"",
+			"PERMISSION_DENIED",
+			"POSITION_UNAVAILABLE",
+			"TIMEOUT",
+		][error.code])
+	);
+	*/
+	
+	
+	
+	let map = document.querySelector("#map");
+
+	const z = 9;
+	for(let y=199; y<=203; y++){
+		let row = document.createElement("div");
+
+		for(let x=451; x<=455; x++){
+			let img = document.createElement("img");
+			img.setAttribute("crossorigin", "anonymous");
+
+			img.addEventListener("error", (filename => {
+				return function f(event){
+					this.removeEventListener("error", f);	// 自分自身を削除
+					//alert(`${event.type}\n${event.message}`);
+					//this.src = filename;
+				};
+			})(`https://cyberjapandata.gsi.go.jp/xyz/dem_png/${z}/${x}/${y}.png`));
+
+			img.src = `img/dem_png/${z}/${x}/${y}.png`;
+			row.appendChild(img);
+		}
+
+		map.appendChild(row);
+		//map.appendChild(document.createElement("br"));
+	}
+
+	
+	map.addEventListener("mousemove", event => {
+		let x = event.pageX - event.currentTarget.offsetLeft;
+		let y = event.pageY - event.currentTarget.offsetTop;
+		//window.status = `${x}, ${y}`;
+	});
+
+	map.addEventListener("click", event => {
+		let getAltitude = (x, y) => {
+			let img = event.currentTarget.querySelector(`:nth-of-type(${Math.floor(y/256)+1})>img:nth-of-type(${Math.floor(x/256)+1})`);
+			let canvas = document.createElement("canvas");
+			let context = canvas.getContext("2d");
+			context.drawImage(img, 0, 0);
+
+			let pixel = context.getImageData(x % 256, y % 256, 1, 1).data;
+
+			let altitude = pixel[0]*(2**16) + pixel[1]*(2**8) + pixel[2]*(2**0);
+			altitude *= altitude < 2**23 ? 0.01 : 0;
+			return altitude;
+		};
+		
+		let x = event.pageX - event.currentTarget.offsetLeft;	//event.offsetX
+		let y = event.pageY - event.currentTarget.offsetTop;	//event.offsetY
+		//event.currentTarget.querySelector(`:nth-of-type(${Math.floor(y/256)+1})>img:nth-of-type(${Math.floor(x/256)+1})`).style="border:solid 1px #000;";
+		
+		
+		alert(`${x}, ${y}\n${Math.floor(x / 256)}, ${Math.floor(y / 256)}\n${getAltitude(x, y)}`);//
+	});
+
+
+
+
+
+
+
+
+	//国土地理院/国土数値情報/FG-GML-5239/FG-GML-5239-[0-7][0-7].png
+	//1次メッシュ	latitude	0.666=2/3		~~(latitude*3/2)
+	//1次メッシュ	longitude	1				~~(longitude-100)
+	//2次メッシュ	latitude	0.08333=1/12	~~((latitude - ~~(latitude*3/2)*2/3)*12/8)
+	//2次メッシュ	longitude	0.125=1/8		~~((longitude - ~~longitude)*8)
+	//FG-GML-5239-00.png	34.666666667～34.75	139～139.125
+	
+	//国土地理院/国土数値情報/FG-GML-5239/FG-GML-5239-[0-7][0-7].png
+	/*
+	elDrop.addEventListener("drop", function(event) {
+		var file = files[i];
+		
+		var img = new Image();
+		
+		img.addEventListener("load", function(event){
+			var gml = createGML(file, xml);
+			
+			var canvas = document.querySelector("#image-contents");
+			var context = canvas.getContext("2d");
+			canvas.width = gml.image.w;
+			canvas.height = gml.image.h;
+			var image = context.getImageData(0, 0, canvas.width, canvas.height);
+			var data = image.data;
+			
+			var log = "";
+			
+			var bias = 0.1;	//0.08
+			var origin = {};	// 原点
+			origin.x = gml.image.w / 2;
+			origin.y = gml.image.h / 2;
+			//origin = {x:400, y:490};
+			//origin = {x:748, y:465};	// 瀬上市民の森頂上付近
+			//origin = {x:735, y:450};	// 上郷高校付近
+			//origin = {x:678, y:570};	// 犬山南付近
+			origin = {x:680, y:25};	// 天台山山頂
+			//origin.d = {N:-2,NE:-1,E:0,SE:1,S:2,SW:3,W:4,NW:5}["E"]*Math.PI/4;
+			origin.d = {N:2,NE:3,E:4,SE:5,S:6,SW:7,W:8,NW:9}["S"]*Math.PI/4;
+			origin.altitude = ~~(position.coords.altitude);
+			//origin.altitude = ~~(gml.image.getData(origin.y, origin.x));
+			//var r_max = Math.min(origin.x, origin.y, gml.image.w-origin.x, gml.image.h-origin.y);
+			//var r_max = Math.sqrt(gml.image.w*gml.image.w + gml.image.h*gml.image.h);
+			var r_max = Math.min(gml.image.w/2, gml.image.h/2);
+			for(var j=0,w=canvas.width; j<w; j++){
+				// 標高データの極座標を設定
+				//var d = 2*Math.PI*(j-w/2)/w;	// -PI～PI, 反時計回り
+				var d = 2*Math.PI*j/w;	// 反時計回り
+				log += j + " : ";
+				for(var i=0,h=canvas.height; i<h*0.95; i++){
+					// 標高データの極座標を設定
+					var r = r_max*(h-i)/h;
+					// 標高データの極座標を直交座標に変換	原点を中心に設定
+					var x = Math.cos(d+origin.d)*r + origin.x;
+					var y = Math.sin(d+origin.d)*r + origin.y;
+					// 標高データを取得
+					var altitude = gml.image.getData(y, x);
+					altitude = altitude - origin.altitude + 2;	// 現在地の標高 + 2m
+					altitude = altitude * bias;	// バイアスを設定
+					altitude = Math.asin(altitude / Math.sqrt(altitude*altitude + r*r));
+					//log += altitude + ", ";
+					altitude = altitude*h/2 + h/2;
+					altitude = ~~(altitude);
+					
+					var lightness = 80*(h-i)/h+10;	// 90～10
+					var saturation = 20*i/h+10;	// 10～30
+					var alpha = 0.5*(h-i)/h+0.5;	// 1.0～0.5
+					context.fillStyle = "hsla(140, " + saturation + "%, " + lightness + "%, " + alpha + ")";
+					//var grad = context.createLinearGradient(0,0, h-altitude,altitude);
+					//grad.addColorStop(0, "hsla(140, " + saturation + "%, " + lightness + "%, " + alpha + ")");
+					//grad.addColorStop(1, "hsla(140, " + saturation + "%, " + lightness + "%, " + alpha + ")");
+					//context.fillStyle = grad;
+					context.fillRect(j, h-altitude, 1, altitude);
+					
+					//log += ~~(altitude) + ",";
+				}
+				log += "\n";
+			}
+			
+			document.querySelector("#log").value = log;
+			
+			
+			
+			canvas.addEventListener('click', function(e){
+				var x = e.clientX - canvas.offsetLeft;
+				var y = e.clientY - canvas.offsetTop;
+				//window.status = ;
+			}, false);
+		});
+		img.addEventListener("error", function(event){
+			
+		});
+		
+		img.src = file;
+	});
+	*/
+});
+
+
+window.addEventListener("unload", function(){
+});
+
+// ]]>
+</script>
+</head>
+<body>
+
+<div id="map"></div>
+<div>
+	<canvas id="image-contents" width="" height="" style="border:1px solid blue;"></canvas>
+</div>
+<!--
+<div>
+	<textarea value="" placeholder="" id="log" style="width:100%; height:20em;"></textarea>
+	<textarea value="" placeholder="" id="metadata" style="width:100%; height:20em; overflow:scroll;"></textarea>
+</div>
+-->
+
+</body>
+</html>
